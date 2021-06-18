@@ -13,8 +13,6 @@ const upload = multer({
         }
     })
 });
-
-// tenserflow helper 
 const detectProduct = require('./helpers/detectProduct');
 const port = process.env.PORT || 8080;
 
@@ -22,19 +20,48 @@ app.use(express.json());
 app.use(cors());
 app.use('/uploads',express.static('uploads'));
 
-// 상품 등록 API
+app.get('/banners', (req,res) => {
+    models.Banner.findAll({
+        limit: 2
+    })
+    .then((result) => {
+        res.send({
+            banners: result,
+        });
+    })
+    .catch((error) => {
+        console.error(error);
+        res.status(500).send('에러 발생!')
+    })
+})
+
+app.get('/products', async (req, res) => {
+    models.Product.findAll({
+        order: [["createdAt", "DESC"]],
+        attributes: ["id", "title", "description","price", "createdAt", "imageUrl","soldout"],
+    })
+    .then((result) => {
+        console.log("PRODUCTS : ",result);
+        res.send({
+            products : result
+        })
+    }).catch((error) => {
+        console.error(error);
+        res.send("에러발생");
+    })
+});
+
 app.post("/products", (req,res) => {
     const body = req.body;
-    const {name, description, price, seller, imageUrl} = body;
-    if(!name || !description || !price || !seller || !imageUrl){
+    const {title, description, price, imageUrl} = body;
+    if(!title || !description || !price || !imageUrl){
         res.status(400).send("모든 필드를 입력해주세요!")
     }
     detectProduct(imageUrl, (type) => {
         models.Product.create({
-        name,
+        title,
         description,
         price,
-        seller,
         imageUrl,
         type
     }).then((result) => {
@@ -50,7 +77,24 @@ app.post("/products", (req,res) => {
     
 });
 
-// 이미지 저장 API
+app.get("/products/:id", (req,res) => {
+    const params = req.params;
+    const {id} = params;
+    models.Product.findOne({
+        where :{
+            id : id
+        }
+    }).then((result)=>{
+        console.log("PRODUCT: ",result);
+        res.send({
+            product : result
+        })
+    }).catch((error)=> {
+        console.error(error);
+        res.status(400).send("상품 조회에 에러가 발생했습니다.")
+    })
+})
+
 app.post('/image', upload.single('image'),(req,res) => {
     const file = req.file;
     console.log(file);
@@ -59,8 +103,6 @@ app.post('/image', upload.single('image'),(req,res) => {
     })
 })
 
-
-// 구매 API
 app.post('/purchase/:id', (req,res) => {
     const {id} = req.params;
     models.Product.update({
@@ -80,8 +122,6 @@ app.post('/purchase/:id', (req,res) => {
     }) 
 });
 
-
-// 상품 추천 API
 app.get('/products/:id/recommendation', (req,res) => {
     const { id } = req.params
     models.Product.findOne({
@@ -112,7 +152,7 @@ app.get('/products/:id/recommendation', (req,res) => {
 })
 
 app.listen(port, () => {
-    console.log('itsmine 쇼핑몰 서버가 돌아가고 있습니다: ',port);
+    console.log('itsmine 서버가 돌아가고 있습니다: ',port);
     models.sequelize.sync()
     .then(() => {
         console.log('DB 연결 성공');
